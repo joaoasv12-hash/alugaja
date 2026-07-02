@@ -31,9 +31,7 @@ async function uploadLocal(buffer: Buffer, nomeOriginal: string): Promise<Upload
 }
 
 async function uploadCloudinary(buffer: Buffer, nomeOriginal: string): Promise<UploadResult> {
-  // Lazy import — só disponível em produção com CLOUDINARY_* configurado
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { v2: cloudinary } = await import("cloudinary" as any);
+  const { v2: cloudinary } = await import("cloudinary");
 
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -54,7 +52,6 @@ async function uploadCloudinary(buffer: Buffer, nomeOriginal: string): Promise<U
 
 export async function excluirImagem(publicId: string): Promise<void> {
   if (!process.env.CLOUDINARY_CLOUD_NAME) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { v2: cloudinary } = await import("cloudinary" as any);
+  const { v2: cloudinary } = await import("cloudinary");
   await cloudinary.uploader.destroy(publicId);
 }

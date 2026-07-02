@@ -2,7 +2,6 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { authOptions } from "@/lib/auth";
 import { obterImovelPorSlug } from "@/lib/services/property-service";
 import { GaleriaFotos } from "@/components/property/galeria-fotos";
@@ -18,11 +17,7 @@ import {
 } from "lucide-react";
 import { BotaoFavorito } from "@/components/property/botao-favorito";
 import { SimuladorCustos } from "@/components/property/simulador-custos";
-
-const MapaImoveis = dynamic(
-  () => import("@/components/map/mapa-imoveis").then((m) => m.MapaImoveis),
-  { ssr: false }
-);
+import { MapaCliente } from "@/components/map/mapa-cliente";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -137,7 +132,7 @@ export default async function ImovelPage({ params }: PageProps) {
                   <MapPin className="h-4 w-4" /> Localização
                 </h2>
                 <div className="h-64 rounded-xl overflow-hidden">
-                  <MapaImoveis
+                  <MapaCliente
                     imoveis={[{
                       id: imovel.id,
                       slug: imovel.slug,

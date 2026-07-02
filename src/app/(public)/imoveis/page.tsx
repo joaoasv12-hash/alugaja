@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { buscaSchema } from "@/lib/validations/property";
 import { buscarImoveis, buscarImoveisMapa } from "@/lib/services/property-service";
@@ -8,12 +7,7 @@ import { FiltrosBusca } from "@/components/search/filtros-busca";
 import { Button } from "@/components/ui/button";
 import { Building2, Map, List } from "lucide-react";
 import Link from "next/link";
-
-// Mapa carregado apenas no cliente (Leaflet não tem SSR)
-const MapaImoveis = dynamic(
-  () => import("@/components/map/mapa-imoveis").then((m) => m.MapaImoveis),
-  { ssr: false, loading: () => <div className="h-full bg-slate-200 dark:bg-slate-700 rounded-xl animate-pulse" /> }
-);
+import { MapaCliente } from "@/components/map/mapa-cliente";
 
 export const metadata: Metadata = { title: "Buscar imóveis" };
 
@@ -81,7 +75,7 @@ export default async function ImoveisPage({ searchParams }: PageProps) {
         {modoMapa ? (
           /* Vista de mapa */
           <div className="h-[calc(100vh-240px)] min-h-[500px]">
-            <MapaImoveis
+            <MapaCliente
               imoveis={pinsDoMapa.map((im) => ({
                 id: im.id,
                 slug: im.slug,
