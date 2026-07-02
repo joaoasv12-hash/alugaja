@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import { formatarMoeda, formatarData } from "@/lib/utils";
 import { DollarSign, TrendingUp, TrendingDown, Users, CreditCard } from "lucide-react";
