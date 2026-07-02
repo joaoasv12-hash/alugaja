@@ -26,7 +26,7 @@ export async function criarPagamentoPix(params: CriarPagamentoPixParams): Promis
     await db.payment.create({
       data: {
         invoiceId: fatura.id,
-        userId: (await db.invoice.findUnique({ where: { id: fatura.id } }))!.userId,
+        userId: (await db.invoice.findUniqueOrThrow({ where: { id: fatura.id } })).userId,
         amount: valor,
         method: PaymentMethod.PIX,
         status: PaymentStatus.PENDING,
@@ -59,11 +59,12 @@ export async function criarPagamentoPix(params: CriarPagamentoPixParams): Promis
 
   const pixData = (pagamento as any).point_of_interaction?.transaction_data;
 
-  const userId = (await db.invoice.findUnique({ where: { id: fatura.id } }))!.userId;
+  const faturaDb = await db.invoice.findUnique({ where: { id: fatura.id } });
+  if (!faturaDb) throw new Error(`Fatura ${fatura.id} não encontrada`);
   await db.payment.create({
     data: {
       invoiceId: fatura.id,
-      userId,
+      userId: faturaDb.userId,
       amount: valor,
       method: PaymentMethod.PIX,
       status: PaymentStatus.PENDING,
@@ -119,11 +120,12 @@ export async function criarPreferenceCartao(params: CriarPreferenceParams): Prom
     },
   });
 
-  const userId = (await db.invoice.findUnique({ where: { id: fatura.id } }))!.userId;
+  const faturaDbCartao = await db.invoice.findUnique({ where: { id: fatura.id } });
+  if (!faturaDbCartao) throw new Error(`Fatura ${fatura.id} não encontrada`);
   await db.payment.create({
     data: {
       invoiceId: fatura.id,
-      userId,
+      userId: faturaDbCartao.userId,
       amount: valor,
       method: PaymentMethod.CREDIT_CARD,
       status: PaymentStatus.PENDING,

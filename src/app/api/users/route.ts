@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { ZodError } from "zod";
 import { db } from "@/lib/db";
 import { cadastroSchema } from "@/lib/validations/auth";
 import { Role } from "@/generated/prisma/enums";
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (erro: unknown) {
-    if (erro instanceof Error && erro.name === "ZodError") {
+    if (erro instanceof ZodError) {
       return NextResponse.json({ erro: "Dados inválidos." }, { status: 422 });
     }
     console.error("Erro ao criar usuário:", erro);
