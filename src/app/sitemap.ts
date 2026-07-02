@@ -3,13 +3,20 @@ import { db } from "@/lib/db";
 
 const BASE = process.env.NEXTAUTH_URL ?? "https://alugaja.com.br";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const imoveis = await db.property.findMany({
-    where: { status: "ACTIVE" },
-    select: { slug: true, updatedAt: true },
-    orderBy: { updatedAt: "desc" },
-    take: 5000,
-  });
+  let imoveis: { slug: string; updatedAt: Date }[] = [];
+  try {
+    imoveis = await db.property.findMany({
+      where: { status: "ACTIVE" },
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 5000,
+    });
+  } catch {
+    // DB não disponível (build sem DATABASE_URL) — retorna apenas páginas estáticas
+  }
 
   const paginasEstaticas: MetadataRoute.Sitemap = [
     { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
