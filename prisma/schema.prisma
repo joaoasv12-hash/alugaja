@@ -1,0 +1,648 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  TENANT
+  LANDLORD
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  PENDING_VERIFICATION
+}
+
+enum DocumentType {
+  RG
+  CPF
+  CNH
+  CNPJ
+  SELFIE
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  STUDIO
+  ROOM
+  COMMERCIAL
+}
+
+enum PropertyStatus {
+  DRAFT
+  UNDER_REVIEW
+  ACTIVE
+  PAUSED
+  RENTED
+  EXPIRED
+}
+
+enum SponsorshipStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum VisitStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum GuaranteeType {
+  DEPOSIT
+  GUARANTOR
+  INSURANCE
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTER_OFFERED
+  EXPIRED
+  CANCELLED
+}
+
+enum ContractType {
+  RESIDENTIAL_LONG
+  RESIDENTIAL_SHORT
+  SEASONAL
+  ROOM_SHARING
+  COMMERCIAL
+  RENEWAL_ADDENDUM
+}
+
+enum AdjustmentIndex {
+  IGPM
+  IPCA
+  OTHER
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_SIGNATURES
+  ACTIVE
+  TERMINATED
+  EXPIRED
+}
+
+enum SignerRole {
+  LANDLORD
+  TENANT
+}
+
+enum InspectionType {
+  ENTRY
+  EXIT
+}
+
+enum InvoiceType {
+  SUCCESS_FEE
+  SPONSORSHIP
+  SUBSCRIPTION
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  PIX
+  BOLETO
+  CREDIT_CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+enum ReviewType {
+  TENANT_REVIEWS_LANDLORD
+  LANDLORD_REVIEWS_TENANT
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  VISIT_CONFIRMED
+  VISIT_CANCELLED
+  PROPOSAL_RECEIVED
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  CONTRACT_READY
+  CONTRACT_SIGNED
+  INVOICE_GENERATED
+  INVOICE_DUE
+  REVIEW_RECEIVED
+  PROPERTY_APPROVED
+  PROPERTY_REJECTED
+  SAVED_SEARCH_MATCH
+}
+
+enum ReportReason {
+  FAKE_LISTING
+  SCAM
+  DISCRIMINATION
+  INAPPROPRIATE_CONTENT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+// ─── AUTENTICAÇÃO (NextAuth) ──────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── USUÁRIO ──────────────────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified DateTime?
+  phone         String?
+  phoneVerified Boolean    @default(false)
+  passwordHash  String?
+  roles         Role[]     @default([TENANT])
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  profile       Profile?
+  documents     Document[]
+  properties    Property[]
+  favorites     Favorite[]
+  savedSearches SavedSearch[]
+
+  sentMessages          Message[]
+  tenantConversations   Conversation[] @relation("TenantConversations")
+  landlordConversations Conversation[] @relation("LandlordConversations")
+
+  tenantProposals   Proposal[] @relation("TenantProposals")
+  landlordProposals Proposal[] @relation("LandlordProposals")
+
+  tenantContracts   Contract[] @relation("TenantContracts")
+  landlordContracts Contract[] @relation("LandlordContracts")
+
+  signatures    Signature[]
+  counterOffers CounterOffer[]
+  visitsTenant  VisitSchedule[] @relation("TenantVisits")
+
+  invoices     Invoice[]
+  subscription Subscription?
+  payments     Payment[]
+
+  reviewsGiven    Review[] @relation("ReviewsGiven")
+  reviewsReceived Review[] @relation("ReviewsReceived")
+
+  notifications Notification[]
+  reports       Report[]       @relation("Reporter")
+  reportedBy    Report[]       @relation("ReportedUser")
+  auditLogs     AuditLog[]
+}
+
+model Profile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  avatarUrl   String?
+  cpfCnpj     String?
+  birthDate   DateTime?
+  bio         String?
+  isVerified  Boolean   @default(false)
+  verifiedAt  DateTime?
+  rating      Float?
+  reviewCount Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Document {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       DocumentType
+  fileUrl    String
+  status     DocumentStatus @default(PENDING)
+  adminNotes String?
+  reviewedAt DateTime?
+  createdAt  DateTime       @default(now())
+}
+
+// ─── IMÓVEIS ──────────────────────────────────────────────────────────────────
+
+model Property {
+  id            String         @id @default(cuid())
+  landlordId    String
+  landlord      User           @relation(fields: [landlordId], references: [id])
+  title         String
+  description   String         @db.Text
+  type          PropertyType
+  status        PropertyStatus @default(DRAFT)
+  slug          String         @unique
+  rentPrice     Decimal        @db.Decimal(10, 2)
+  condoFee      Decimal?       @db.Decimal(10, 2)
+  iptu          Decimal?       @db.Decimal(10, 2)
+  area          Float
+  bedrooms      Int
+  bathrooms     Int
+  parkingSpots  Int            @default(0)
+  isFurnished   Boolean        @default(false)
+  acceptsPets   Boolean        @default(false)
+  zipCode       String
+  street        String
+  number        String
+  complement    String?
+  neighborhood  String
+  city          String
+  state         String
+  latitude      Float?
+  longitude     Float?
+  viewCount     Int            @default(0)
+  favoriteCount Int            @default(0)
+  adminNotes    String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  expiresAt     DateTime?
+
+  photos        PropertyPhoto[]
+  favorites     Favorite[]
+  sponsorships  Sponsorship[]
+  conversations Conversation[]
+  proposals     Proposal[]
+  contracts     Contract[]
+  reviews       Review[]
+  reports       Report[]        @relation("ReportedProperty")
+  visits        VisitSchedule[]
+}
+
+model PropertyPhoto {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  order      Int      @default(0)
+  caption    String?
+  createdAt  DateTime @default(now())
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+model SavedSearch {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  filters     Json
+  alertActive Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+// ─── PATROCÍNIO ──────────────────────────────────────────────────────────────
+
+model Sponsorship {
+  id         String            @id @default(cuid())
+  propertyId String
+  property   Property          @relation(fields: [propertyId], references: [id])
+  planDays   Int
+  price      Decimal           @db.Decimal(10, 2)
+  status     SponsorshipStatus @default(PENDING)
+  startsAt   DateTime?
+  expiresAt  DateTime?
+  invoiceId  String?
+  invoice    Invoice?          @relation(fields: [invoiceId], references: [id])
+  createdAt  DateTime          @default(now())
+}
+
+// ─── NEGOCIAÇÃO ───────────────────────────────────────────────────────────────
+
+model Conversation {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  tenantId   String
+  tenant     User     @relation("TenantConversations", fields: [tenantId], references: [id])
+  landlordId String
+  landlord   User     @relation("LandlordConversations", fields: [landlordId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages Message[]
+  visits   VisitSchedule[]
+
+  @@unique([propertyId, tenantId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  content        String       @db.Text
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model VisitSchedule {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  tenantId       String
+  tenant         User         @relation("TenantVisits", fields: [tenantId], references: [id])
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id])
+  proposedTimes  DateTime[]
+  confirmedTime  DateTime?
+  status         VisitStatus  @default(PENDING)
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Proposal {
+  id               String         @id @default(cuid())
+  propertyId       String
+  property         Property       @relation(fields: [propertyId], references: [id])
+  tenantId         String
+  tenant           User           @relation("TenantProposals", fields: [tenantId], references: [id])
+  landlordId       String
+  landlord         User           @relation("LandlordProposals", fields: [landlordId], references: [id])
+  rentValue        Decimal        @db.Decimal(10, 2)
+  entryDate        DateTime
+  durationMonths   Int
+  guarantee        GuaranteeType
+  guaranteeDetails Json?
+  status           ProposalStatus @default(PENDING)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  counterOffers CounterOffer[]
+  contract      Contract?
+}
+
+model CounterOffer {
+  id             String    @id @default(cuid())
+  proposalId     String
+  proposal       Proposal  @relation(fields: [proposalId], references: [id])
+  fromUserId     String
+  fromUser       User      @relation(fields: [fromUserId], references: [id])
+  rentValue      Decimal?  @db.Decimal(10, 2)
+  entryDate      DateTime?
+  durationMonths Int?
+  message        String?
+  createdAt      DateTime  @default(now())
+}
+
+// ─── CONTRATOS ────────────────────────────────────────────────────────────────
+
+model Contract {
+  id              String          @id @default(cuid())
+  proposalId      String          @unique
+  proposal        Proposal        @relation(fields: [proposalId], references: [id])
+  propertyId      String
+  property        Property        @relation(fields: [propertyId], references: [id])
+  templateType    ContractType
+  landlordId      String
+  landlord        User            @relation("LandlordContracts", fields: [landlordId], references: [id])
+  tenantId        String
+  tenant          User            @relation("TenantContracts", fields: [tenantId], references: [id])
+  rentValue       Decimal         @db.Decimal(10, 2)
+  adjustmentIndex AdjustmentIndex @default(IGPM)
+  startDate       DateTime
+  endDate         DateTime?
+  durationMonths  Int
+  guarantee       GuaranteeType
+  status          ContractStatus  @default(DRAFT)
+  pdfUrl          String?
+  documentHash    String?
+  invoiceId       String?         @unique
+  invoice         Invoice?        @relation(fields: [invoiceId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  signatures  Signature[]
+  inspections InspectionReport[]
+  reviews     Review[]
+}
+
+model Signature {
+  id           String    @id @default(cuid())
+  contractId   String
+  contract     Contract  @relation(fields: [contractId], references: [id])
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  role         SignerRole
+  ipAddress    String
+  userAgent    String?
+  documentHash String
+  signedAt     DateTime  @default(now())
+
+  @@unique([contractId, userId])
+}
+
+model InspectionReport {
+  id         String         @id @default(cuid())
+  contractId String
+  contract   Contract       @relation(fields: [contractId], references: [id])
+  type       InspectionType
+  rooms      Json
+  photos     String[]
+  notes      String?
+  signedAt   DateTime?
+  createdAt  DateTime       @default(now())
+}
+
+// ─── PAGAMENTOS ───────────────────────────────────────────────────────────────
+
+model Invoice {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  type        InvoiceType
+  amount      Decimal       @db.Decimal(10, 2)
+  status      InvoiceStatus @default(PENDING)
+  dueDate     DateTime
+  paidAt      DateTime?
+  description String?
+  externalId  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  sponsorships   Sponsorship[]
+  contract       Contract?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionId String?
+  payments       Payment[]
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice       @relation(fields: [invoiceId], references: [id])
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  amount     Decimal       @db.Decimal(10, 2)
+  method     PaymentMethod
+  status     PaymentStatus @default(PENDING)
+  externalId String?
+  metadata   Json?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Subscription {
+  id          String             @id @default(cuid())
+  userId      String             @unique
+  user        User               @relation(fields: [userId], references: [id])
+  status      SubscriptionStatus @default(ACTIVE)
+  startDate   DateTime
+  nextBilling DateTime
+  externalId  String?
+  invoices    Invoice[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+// ─── AVALIAÇÕES ───────────────────────────────────────────────────────────────
+
+model Review {
+  id         String     @id @default(cuid())
+  contractId String
+  contract   Contract   @relation(fields: [contractId], references: [id])
+  reviewerId String
+  reviewer   User       @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewedId String
+  reviewed   User       @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id])
+  rating     Int
+  comment    String?    @db.Text
+  type       ReviewType
+  createdAt  DateTime   @default(now())
+
+  @@unique([contractId, reviewerId])
+}
+
+// ─── NOTIFICAÇÕES ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+}
+
+// ─── DENÚNCIAS & AUDITORIA ───────────────────────────────────────────────────
+
+model Report {
+  id           String       @id @default(cuid())
+  reporterId   String
+  reporter     User         @relation("Reporter", fields: [reporterId], references: [id])
+  propertyId   String?
+  property     Property?    @relation("ReportedProperty", fields: [propertyId], references: [id])
+  targetUserId String?
+  targetUser   User?        @relation("ReportedUser", fields: [targetUserId], references: [id])
+  reason       ReportReason
+  description  String       @db.Text
+  status       ReportStatus @default(PENDING)
+  adminNotes   String?
+  createdAt    DateTime     @default(now())
+  resolvedAt   DateTime?
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String
+  targetType String
+  targetId   String
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}
